@@ -1,2 +1,2 @@
-Mashura is a legal counsel chatbot.
+Mashura is a legal counseling chatbot.
 
