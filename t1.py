@@ -7,7 +7,8 @@ from langchain_community.document_loaders import DataFrameLoader
 from langchain.memory import ConversationBufferMemory
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.chains import ConversationalRetrievalChain
-from langchain_community.vectorstores import DocArrayInMemorySearch
+from langchain_community.vectorstores import FAISS
+# from langchain_community.vectorstores import DocArrayInMemorySearch
 from pydantic import ValidationError
 load_dotenv()
 
@@ -26,8 +27,26 @@ df = pd.read_csv("data.csv")
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 all_docs = DataFrameLoader(df, page_content_column="page_content").load()
 
+saveDirectory = 'Store'  # directory where to store the db
+
+def getVectordb():
+    # Check if cached results file exists
+    cached_results_file = './Store/index.pkl'
+    if os.path.exists(cached_results_file):
+        vectordb = FAISS.load_local(saveDirectory, embeddings)
+        print("db already saved")
+    else:
+        # Run the expensive function
+        vectordb = FAISS.from_documents(all_docs, embeddings)
+        # Save results to file
+        vectordb.save_local(saveDirectory)
+        print("db just saved")
+    return vectordb
+
 # Set up vector database
-vectordb = DocArrayInMemorySearch.from_documents(all_docs, embeddings)
+# vectordb = DocArrayInMemorySearch.from_documents(all_docs, embeddings)
+
+vectordb = getVectordb()
 
 # Define retriever
 retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k": 3})
@@ -94,7 +113,7 @@ BOT_TEMPLATE = """
     <div class="avatar">
         <img src="https://i.ibb.co/BrrTgCz/logo2.png" alt="Bot Avatar">
     </div>
-    <div class="message">{}</div>
+    <div class="message" style="color: black;">{}</div>
 </div>
 """
 
@@ -124,7 +143,7 @@ def main():
     <style>
     /* Style the text input */
     .stTextInput>div>div>input {
-        color: white;
+        color: black;
         background-color:#dacec2; /* Green background color */
         border: 2px solid #dacec2; /* Green border */
         border-radius: 10px; /* Rounded corners */
@@ -136,19 +155,25 @@ def main():
     # Apply the CSS styles
     st.markdown(TEXT_INPUT_STYLE, unsafe_allow_html=True)
 
-    # Display the text input widget
-    user_input = st.text_input("أدخل رسالتك هنا...")
 
-    if st.button("إرسال"):
+    if 'text' not in st.session_state:
+        st.session_state.text = ""
+
+    def update():
+        st.session_state.text = st.session_state.text_value
+
+    with st.form(key='my_form', clear_on_submit=True):
+        st.text_input(" ", placeholder='أدخل سؤالك هنا', value="", key='text_value')
+        submit = st.form_submit_button(label='إرسال', on_click=update)
+
+    if submit:
         with st.spinner("جاري التحليل..."):
-            response = qa_chain.run(user_input)
-            st.session_state['conversation'].append(("User", user_input))
-            st.session_state['conversation'].append(("ChatGPT", response))
+            response = qa_chain.run(st.session_state.text)
+            st.session_state['conversation'].insert(0, ("ChatGPT", response))
+            st.session_state['conversation'].insert(0, ("User", st.session_state.text))
             display_conversation()
-            # Clear the text input after the button is pressed
-            # user_input = ""  # Set the text input to an empty string
 
-# Display conversation history
+
 def display_conversation():
     for speaker, message in st.session_state['conversation']:
         if speaker == "User":
