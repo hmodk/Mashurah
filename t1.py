@@ -1,63 +1,32 @@
 import os
-import pandas as pd
-from dotenv import load_dotenv
 import streamlit as st
-from langchain_openai import ChatOpenAI
+import pandas as pd
+from langchain.chat_models import ChatOpenAI
 from langchain_community.document_loaders import DataFrameLoader
 from langchain.memory import ConversationBufferMemory
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.chains import ConversationalRetrievalChain
 from langchain_community.vectorstores import FAISS
-# from langchain_community.vectorstores import DocArrayInMemorySearch
-from pydantic import ValidationError
-load_dotenv()
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.callbacks.base import BaseCallbackHandler
 
-# Get the OpenAI API key from the environment variables
-openai_api_key = os.getenv("OPENAI_API_KEY")
+os.environ['OPENAI_API_KEY'] = "Insert Your API here."
 
-# Check if the API key is available
-if openai_api_key is None:
-    raise ValueError("OpenAI API key not found in the environment variables.")
+st.set_page_config(
+    page_title="مشوره",
+    page_icon="https://i.ibb.co/BrrTgCz/logo2.png"
+)
 
+# Your image URL
+icon_image_url = "https://i.ibb.co/BrrTgCz/logo2.png"
 
-# Load the data
-df = pd.read_csv("data.csv")
+# Display the image in the middle of the page
+st.markdown(
+    f'<div style="display: flex; justify-content: center;"><img src="{icon_image_url}" width="200"></div>',
+    unsafe_allow_html=True
+)
 
-# Set up embeddings
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
-all_docs = DataFrameLoader(df, page_content_column="page_content").load()
-
-saveDirectory = 'Store'  # directory where to store the db
-
-def getVectordb():
-    # Check if cached results file exists
-    cached_results_file = './Store/index.pkl'
-    if os.path.exists(cached_results_file):
-        vectordb = FAISS.load_local(saveDirectory, embeddings)
-        print("db already saved")
-    else:
-        # Run the expensive function
-        vectordb = FAISS.from_documents(all_docs, embeddings)
-        # Save results to file
-        vectordb.save_local(saveDirectory)
-        print("db just saved")
-    return vectordb
-
-# Set up vector database
-# vectordb = DocArrayInMemorySearch.from_documents(all_docs, embeddings)
-
-vectordb = getVectordb()
-
-# Define retriever
-retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k": 3})
-
-# Set up memory for contextual conversation
-memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
-
-# Set up LLM and QA chain
-llm = ChatOpenAI(model_name="gpt-3.5-turbo")
-qa_chain = ConversationalRetrievalChain.from_llm(llm, retriever=retriever, memory=memory, verbose=True)
-
+# Define HTML templates for user and bot messages
 # Define CSS styles
 CSS_STYLES = """
 <style>
@@ -111,7 +80,7 @@ CSS_STYLES = """
 BOT_TEMPLATE = """
 <div class="chat-message bot">
     <div class="avatar">
-        <img src="https://i.ibb.co/BrrTgCz/logo2.png" alt="Bot Avatar">
+        <img src="https://i.ibb.co/YtJ5cCB/Screenshot-1445-08-02-at-2-28-00-PM.png" alt="Bot Avatar">
     </div>
     <div class="message" style="color: black;">{}</div>
 </div>
@@ -126,64 +95,111 @@ USER_TEMPLATE = """
 </div>
 """
 
-# Main function
-def main():
-    st.set_page_config(page_title="مشوره", page_icon="📄", layout="wide", initial_sidebar_state="expanded")
-    st.markdown(CSS_STYLES, unsafe_allow_html=True)
+st.markdown(CSS_STYLES, unsafe_allow_html=True)
 
-    # Display the icon image and the title
-    icon_image_url = "https://i.ibb.co/BrrTgCz/logo2.png"  
-    title_text = "مشوره"
+def display_msg(msg, role):
+    # Store the message in the session state
+    st.session_state["messages"].append({'content': msg, 'role': role})
 
-    st.image(icon_image_url, width=100)  # Adjust the width as per your preference
-    st.markdown(f"<div class='title-container'><h1 class='title-text'>{title_text}</h1></div>", unsafe_allow_html=True)
+    # Display message based on the role (user or bot)
+    if role == 'المستخدم':
+        st.write(USER_TEMPLATE.format(msg), unsafe_allow_html=True)
+    else:
+        st.write(BOT_TEMPLATE.format(msg), unsafe_allow_html=True)
 
-    # Define CSS styles for the text input
-    TEXT_INPUT_STYLE = """
-    <style>
-    /* Style the text input */
-    .stTextInput>div>div>input {
-        color: black;
-        background-color:#dacec2; /* Green background color */
-        border: 2px solid #dacec2; /* Green border */
-        border-radius: 10px; /* Rounded corners */
-        padding: 10px; /* Add some padding */
-    }
-    </style>
-    """
+def enable_chat_history(func):
+    def wrapper(*args, **kwargs):
+        # Clear chat history after switching chatbot
+        current_page = func.__qualname__
+        if "current_page" not in st.session_state:
+            st.session_state["current_page"] = current_page
+        if st.session_state["current_page"] != current_page:
+            try:
+                st.cache.clear()
+                del st.session_state["current_page"]
+                del st.session_state["messages"]
+            except:
+                pass
+        if "messages" not in st.session_state:
+            st.session_state["messages"] = []   
+        
+        # Show chat history on UI
+        for msg in st.session_state["messages"]:
+            if msg['role'] == 'المستخدم':
+                st.write(USER_TEMPLATE.format(msg['content']), unsafe_allow_html=True)
+            else:
+                st.write(BOT_TEMPLATE.format(msg['content']), unsafe_allow_html=True)
 
-    # Apply the CSS styles
-    st.markdown(TEXT_INPUT_STYLE, unsafe_allow_html=True)
+        # Call the decorated function
+        return func(*args, **kwargs)
+    return wrapper 
 
+@st.cache_resource
+def load_vectordb():
+    df = pd.read_csv("data.csv")
+    loader = DataFrameLoader(df, page_content_column="page_content")
+    all_docs = loader.load()
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+    saveDirectory = 'Store'  # directory where to store the db
+    
+    # Check if cached results file exists
+    cached_results_file = './Store/index.pkl'
+    if os.path.exists(cached_results_file):
+        vectordb = FAISS.load_local(saveDirectory, embeddings)
+    else:
+        # Run the expensive function
+        vectordb = FAISS.from_documents(all_docs, embeddings)
+        # Save results to file
+        vectordb.save_local(saveDirectory)
+    return vectordb
 
-    if 'text' not in st.session_state:
-        st.session_state.text = ""
+class CustomDataChatbot:
+    
+    def __init__(self):
+        self.openai_model = "gpt-3.5-turbo"
+        self.qa_chain = self.setup_qa_chain()  # Store qa_chain as an attribute
+        self.conversation_history = []  # Initialize conversation history list
+    
+    def setup_qa_chain(self):
+        # Usage
+        vectordb = load_vectordb()
 
-    def update():
-        st.session_state.text = st.session_state.text_value
+        # Define retriever
+        retriever = vectordb.as_retriever(
+            search_type='mmr',
+            search_kwargs={'k':2, 'fetch_k':4}
+        )
 
-    with st.form(key='my_form', clear_on_submit=True):
-        st.text_input(" ", placeholder='أدخل سؤالك هنا', value="", key='text_value')
-        submit = st.form_submit_button(label='إرسال', on_click=update)
+        # Setup memory for contextual conversation        
+        memory = ConversationBufferMemory(
+            memory_key='chat_history',
+            return_messages=True
+        )
 
-    if submit:
-        with st.spinner("جاري التحليل..."):
-            response = qa_chain.run(st.session_state.text)
-            st.session_state['conversation'].insert(0, ("ChatGPT", response))
-            st.session_state['conversation'].insert(0, ("User", st.session_state.text))
-            display_conversation()
+        # Setup LLM and QA chain
+        llm = ChatOpenAI(model_name=self.openai_model, temperature=0, streaming=True)
+        
+        qa_chain = ConversationalRetrievalChain.from_llm(llm,
+                                                         retriever=retriever,
+                                                         memory=memory,
+                                                         verbose=True)
+        return qa_chain
 
-
-def display_conversation():
-    for speaker, message in st.session_state['conversation']:
-        if speaker == "User":
-            st.write(USER_TEMPLATE.format(message), unsafe_allow_html=True)
-        else:
-            st.write(BOT_TEMPLATE.format(message), unsafe_allow_html=True)
-
-# Initialize conversation history in session state
-if 'conversation' not in st.session_state:
-    st.session_state['conversation'] = []
+    @enable_chat_history      
+    def main(self):
+        user_query = st.chat_input(placeholder="!إسئلني")
+        
+        if user_query:
+            display_msg(user_query, "المستخدم")
+            # Process user query and get response
+            response = self.qa_chain.run(user_query)
+            # Append user query and assistant's response to conversation history
+            self.conversation_history.append(("المساعد", response))
+            
+            # Display conversation history
+            for role, msg in self.conversation_history:
+                display_msg(msg, role)
 
 if __name__ == "__main__":
-    main()
+    obj = CustomDataChatbot()
+    obj.main()
