@@ -9,6 +9,6 @@ langchain_chains
 langchain_community.vectorstores
 langchain_text_splitter
 langchain_core
-streamlit==24.0
+streamlit
 sentence-transformers
 faiss
