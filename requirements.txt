@@ -1,0 +1,11 @@
+altair
+numpy
+pandas
+pydeck
+streamlit
+langchain_openai
+langchain_community
+langchain
+sentence-transformers
+chromadb
+pysqlite3-binary
