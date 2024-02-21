@@ -8,10 +8,12 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.chains import ConversationalRetrievalChain
 from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.callbacks.base import BaseCallbackHandler
+from langchain_core.prompts import PromptTemplate
 
-os.environ['OPENAI_API_KEY'] = "Insert Your API here."
+# Set OpenAI API Key
+os.environ['OPENAI_API_KEY'] = "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"
 
+# Set Streamlit page configuration
 st.set_page_config(
     page_title="مشوره",
     page_icon="https://i.ibb.co/BrrTgCz/logo2.png"
@@ -25,56 +27,50 @@ st.markdown(
     f'<div style="display: flex; justify-content: center;"><img src="{icon_image_url}" width="200"></div>',
     unsafe_allow_html=True
 )
+import streamlit as st
 
-# Define HTML templates for user and bot messages
-# Define CSS styles
-CSS_STYLES = """
+CSS_STYLES = f"""
 <style>
-  body {
+    body {{
         direction: rtl;
-        background-color: #dacec2; /* light green background color */
-    }
-
-    .chat-message {
-        padding: 10px;
+    }}
+    .stApp {{
+        background-image: url("");
+        background-size: contain; /* Adjusts the background image to cover the entire container */
+        background-position: center; /* Centers the background image */
+        background-repeat: no-repeat; /* Prevents the background image from repeating */
+    }}
+    .chat-message {{
+        padding: 17px;
         margin: 10px;
         border-radius: 10px;
-        text-align: right;
-    }
+    }}
 
-    .chat-message.user {
+    .chat-message.user {{
         background-color: #dfd7cf;
         align-self: flex-start;
         color: black;
-    }
+        text-align: right;
+    }}
 
-    .chat-message.bot {
+    .chat-message.bot {{
         background-color: #a9927d;
         align-self: flex-end;
         color: white;
-    }
+        text-align: right;
+    }}
 
-    .avatar img {
+    .avatar img {{
         width: 40px;
         height: 40px;
         border-radius: 50%;
-        margin-right: 10px;
-    }
-
-    .title-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        margin-top: 20px;
-    }
-
-    .title-text {
-        color: black;
-        padding: 10px;
-        text-align: center;
-    }
+    }}
 </style>
 """
+
+# Inject the CSS styles into the Streamlit app
+st.markdown(CSS_STYLES, unsafe_allow_html=True)
+
 
 # Define bot and user message templates
 BOT_TEMPLATE = """
@@ -94,8 +90,6 @@ USER_TEMPLATE = """
     <div class="message">{}</div>
 </div>
 """
-
-st.markdown(CSS_STYLES, unsafe_allow_html=True)
 
 def display_msg(msg, role):
     # Store the message in the session state
@@ -132,7 +126,8 @@ def enable_chat_history(func):
 
         # Call the decorated function
         return func(*args, **kwargs)
-    return wrapper 
+    return wrapper
+
 
 @st.cache_resource
 def load_vectordb():
@@ -153,6 +148,20 @@ def load_vectordb():
         vectordb.save_local(saveDirectory)
     return vectordb
 
+
+custom_template = """ 
+messages=[
+    {
+      "role": "system",
+      "content": "You are a Socratic tutor. Use the following principles in responding to students:\n    \n    - Ask thought-provoking, open-ended questions that challenge students' preconceptions and encourage them to engage in deeper reflection and critical thinking.\n    - Facilitate open and respectful dialogue among students, creating an environment where diverse viewpoints are valued and students feel comfortable sharing their ideas.\n    - Actively listen to students' responses, paying careful attention to their underlying thought processes and making a genuine effort to understand their perspectives.\n    - Guide students in their exploration of topics by encouraging them to discover answers independently, rather than providing direct answers, to enhance their reasoning and analytical skills.\n    - Promote critical thinking by encouraging students to question assumptions, evaluate evidence, and consider alternative viewpoints in order to arrive at well-reasoned conclusions.\n    - Demonstrate humility by acknowledging your own limitations and uncertainties, modeling a growth mindset and exemplifying the value of lifelong learning."
+    },
+    {
+      "role": "user",
+      "content": "Help me to understand the future of artificial intelligence."
+    }
+
+"""
+
 class CustomDataChatbot:
     
     def __init__(self):
@@ -166,8 +175,8 @@ class CustomDataChatbot:
 
         # Define retriever
         retriever = vectordb.as_retriever(
-            search_type='mmr',
-            search_kwargs={'k':2, 'fetch_k':4}
+            search_type="similarity",
+            search_kwargs={"k": 3}
         )
 
         # Setup memory for contextual conversation        
@@ -175,19 +184,21 @@ class CustomDataChatbot:
             memory_key='chat_history',
             return_messages=True
         )
+            
 
         # Setup LLM and QA chain
-        llm = ChatOpenAI(model_name=self.openai_model, temperature=0, streaming=True)
+        llm = ChatOpenAI(model_name=self.openai_model, temperature=0.1, streaming=True)
         
         qa_chain = ConversationalRetrievalChain.from_llm(llm,
                                                          retriever=retriever,
                                                          memory=memory,
+                                                         condense_question_prompt=PromptTemplate.from_template(custom_template),
                                                          verbose=True)
         return qa_chain
 
     @enable_chat_history      
     def main(self):
-        user_query = st.chat_input(placeholder="!إسئلني")
+        user_query = st.chat_input(placeholder="إسئلني !")
         
         if user_query:
             display_msg(user_query, "المستخدم")
