@@ -1,8 +1,2 @@
-Mashurah is a chatbot the aims to assist the professionals in law firms to simplify the process of searching Saudi Arabia's law texts in Arabic and English languages.
-Mashurah can assist you with 795 law provisions in five different law fields:
-  1- Criminal Law.
-  2- Mining Investment System.
-  3- Human Resources System.
-  4- Environmental Law.
-  5- Civil Affairs Law.
+Mashurah is an innovative legal consultation chatbot that has been fed with a comprehensive database of 795 legal provisions across five fields: criminal law, mining investment systems, human resources, environmental law, and civil affairs law. It also supports both Arabic and English languages, making it an invaluable resource for a wide range of users seeking legal guidance.Mashurah is an innovative legal consultation chatbot that has been fed with a comprehensive database of 795 legal provisions across five fields: criminal law, mining investment systems, human resources, environmental law, and civil affairs law. It also supports both Arabic and English languages, making it an invaluable resource for a wide range of users seeking legal guidance.
 
