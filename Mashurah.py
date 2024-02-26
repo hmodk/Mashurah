@@ -11,7 +11,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.prompts import PromptTemplate
 
 # Set OpenAI API Key
-os.environ['OPENAI_API_KEY'] = ""
+os.environ['OPENAI_API_KEY'] = "Insert your API key"
 
 # Set Streamlit page configuration
 st.set_page_config(
