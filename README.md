@@ -14,3 +14,7 @@ Mashurah was developed in Python and utilizes several libraries, including OS, S
 In conclusion, Mashurah aims to ease the search and raise awareness among law enforcement practitioners and civilians about the context of 15 law systems across 5 different fields of law. The objective is to incorporate real cases from these fields, with a specific focus on criminal law, to provide users with legal guidance based on scenarios similar to their own, while also prioritizing the consideration of personal information privacy. The integration of real cases and a focus on privacy considerations underscores Mashurah's commitment to providing practical and ethical legal guidance, further enhancing its potential impact on legal awareness and education.
 
 ## Demo
+
+
+https://github.com/hmodk/Mashurah/assets/46458984/20b340cb-e7db-4755-982d-9fa1aea3684c
+
